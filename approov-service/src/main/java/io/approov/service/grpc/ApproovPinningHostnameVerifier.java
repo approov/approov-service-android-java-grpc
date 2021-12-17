@@ -62,6 +62,9 @@ final class ApproovPinningHostnameVerifier implements HostnameVerifier {
     public boolean verify(String hostname, SSLSession session) {
         // check the delegate function first and only proceed if it passes
         if (delegate.verify(hostname, session)) try {
+            // ensure pins are refreshed eventually
+            ApproovService.prefetchApproovToken();
+
             // extract the set of valid pins for the hostname
             Set<String> hostPins = ApproovService.getPins(hostname);
 
