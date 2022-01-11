@@ -32,9 +32,9 @@ android {
 }
 
 dependencies {
-    implementation 'com.squareup.okhttp3:okhttp:4.9.1'
-    implementation 'com.github.approov:approov-android-sdk:2.7.0'
-    implementation 'io.grpc:grpc-okhttp:1.42.1'
+    implementation 'com.squareup.okhttp3:okhttp:4.9.3'
+    implementation 'com.github.approov:approov-android-sdk:2.9.0'
+    implementation 'io.grpc:grpc-okhttp:1.43.2'
 }
 
 afterEvaluate {
@@ -44,7 +44,7 @@ afterEvaluate {
                 from components.release
                 groupId = 'com.github.approov'
                 artifactId = 'approov-service-android-java-grpc'
-                version = '2.7.0'
+                version = '2.9.0'
             }
         }
     }
