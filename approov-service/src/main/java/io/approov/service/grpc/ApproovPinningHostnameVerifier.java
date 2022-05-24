@@ -42,10 +42,10 @@ import okio.ByteString;
  */
 final class ApproovPinningHostnameVerifier implements HostnameVerifier {
 
-    // HostnameVerifier you would normally be using
+    /** HostnameVerifier you would normally be using */
     private final HostnameVerifier delegate;
 
-    // Tag for log messages
+    /** Tag for log messages */
     private static final String TAG = "ApproovPinVerifier";
 
     /**
@@ -63,7 +63,7 @@ final class ApproovPinningHostnameVerifier implements HostnameVerifier {
         // check the delegate function first and only proceed if it passes
         if (delegate.verify(hostname, session)) try {
             // ensure pins are refreshed eventually
-            ApproovService.prefetchApproovToken();
+            ApproovService.prefetch();
 
             // extract the set of valid pins for the hostname
             Set<String> hostPins = ApproovService.getPins(hostname);
