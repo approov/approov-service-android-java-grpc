@@ -467,10 +467,6 @@ public class ApproovService {
             throw new ApproovException("Approov not initialized");
         }
 
-        // ensure the connection is pinned - this is done even if the URL is excluded in case
-        // the same domain is used for an Approov protected request and the same connection is live
-        // TODO how to ensure do this for GRPC?
-
         // Update the data hash based on any token binding header if it is available
         String bindingHeader = getBindingHeader();
         if (bindingHeader != null) {

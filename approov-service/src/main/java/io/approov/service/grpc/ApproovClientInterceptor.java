@@ -1,4 +1,3 @@
-// ApproovService for integrating Approov into apps using GRPC.
 //
 // MIT License
 //
