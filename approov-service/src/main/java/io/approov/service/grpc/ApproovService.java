@@ -45,6 +45,10 @@ public class ApproovService {
     /** true if the Approov SDK initialized okay */
     private static boolean initialized = false;
 
+    /** Initialization configuration string. NOTE this must only ever be written to ONCE since Approov SDK can only
+     * be initialized once */
+    private static String approovConfigString = null;
+
     /** true if the interceptor should proceed on network failures and not add an Approov token */
     private static boolean proceedOnNetworkFail = false;
 
@@ -74,10 +78,16 @@ public class ApproovService {
      * @param config the configuration string, or empty for no SDK initialization
      */
     public static synchronized void initialize(Context context, String config) {
+        // Check if we attempt to use a different configString
+        if (initialized && config != null && !config.isEmpty() && !config.equals(approovConfigString)) {
+            Log.e(TAG, "Attempting to initialize with different configuration");
+            return;
+        }
         try {
-            // TODO RFC What about reinitializing with a different config???
-            if (config.length() != 0)
+            if (config != null && config.length() != 0) {
                 Approov.initialize(context, config, "auto", null);
+                approovConfigString = config;
+            }
             Approov.setUserProperty("approov-service-grpc");
         } catch (IllegalArgumentException e) {
             Log.e(TAG, "Approov initialization failed: " + e.getMessage());
