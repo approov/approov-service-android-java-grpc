@@ -1,4 +1,3 @@
-// ApproovService for integrating Approov into apps using GRPC.
 //
 // MIT License
 //
@@ -30,7 +29,7 @@ import io.grpc.internal.GrpcUtil;
 
 public class ApproovClientInterceptor implements ClientInterceptor {
 
-    // Host for which to fetch Approov tokens
+    /** Host for which to fetch Approov tokens */
     private final String host;
 
     /**
