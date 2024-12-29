@@ -44,9 +44,9 @@
         <scope>runtime</scope>
     </dependency>
     <dependency>
-        <groupId>io.gprc</groupId>
+        <groupId>io.grpc</groupId>
         <artifactId>grpc-okhttp</artifactId>
-        <version>1.60.0</version>
+        <version>1.69.0</version>
         <scope>runtime</scope>
     </dependency>
 </dependencies>
