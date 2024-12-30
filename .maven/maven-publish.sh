@@ -20,7 +20,7 @@ if [ -z "$MAVEN_PASSWORD" ]; then
 fi
 
 # The body artifact name
-BODY_ARTIFACT="service.gprc-${CURRENT_TAG}.zip"
+BODY_ARTIFACT="service.grpc-${CURRENT_TAG}.zip"
 
 # The username:password for the maven repository
 MAVEN_CREDENTIALS=$(printf "${MAVEN_USERNAME}:${MAVEN_PASSWORD}" | base64)
@@ -29,4 +29,4 @@ curl --request POST \
   --verbose \
   --header "Authorization: Bearer ${MAVEN_CREDENTIALS}" \
   --form "bundle=@${BODY_ARTIFACT}" \
-  "https://central.sonatype.com/api/v1/publisher/upload?publishingType=USER_MANAGED&name=service.gprc"
+  "https://central.sonatype.com/api/v1/publisher/upload?publishingType=USER_MANAGED&name=service.grpc"
