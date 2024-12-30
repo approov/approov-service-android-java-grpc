@@ -2,11 +2,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.approov</groupId>
-  <artifactId>service.gprc</artifactId>
+  <artifactId>service.grpc</artifactId>
   <version>3.3.0</version>
   <packaging>aar</packaging>
-  <name>Approov enable gprc interceptor</name>
-    <description>Approov gprc interceptor</description>
+  <name>Approov enable grpc interceptor</name>
+    <description>Approov grpc interceptor</description>
     <url>https://approov.io</url>
 
   <licenses>
