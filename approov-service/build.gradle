@@ -10,11 +10,12 @@ repositories {
 
 
 android {
-    compileSdkVersion 30
+    namespace = "io.approov.service.grpc"
+    compileSdkVersion 34
 
     defaultConfig {
-        minSdkVersion 21
-        targetSdkVersion 29
+        minSdkVersion 23
+        targetSdkVersion 34
     }
 
     buildTypes {
