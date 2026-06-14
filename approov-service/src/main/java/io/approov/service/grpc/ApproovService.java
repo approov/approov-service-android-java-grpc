@@ -93,52 +93,83 @@ public class ApproovService {
     private ApproovService() {}
 
     /**
+     * Initializes the Approov service with an account configuration and an optional comment.
+     *
+     * Per TESTING_REQUIREMENTS §1 the service layer never short-circuits an initialization call
+     * carrying a non-empty config based on its own internal state: every non-empty config (including
+     * the same config with a different comment, or a different config) is forwarded directly to the
+     * native Approov SDK. If the native SDK throws (e.g. a different config triggers an
+     * {@link IllegalStateException}) the failure is surfaced and the service-layer state is left
+     * completely unchanged. If the native SDK confirms success (including returning {@code false} for
+     * an already-initialized same config) the service-layer state is reset and re-applied — including
+     * resetting the custom service mutator to the default. An empty config after a valid config is
+     * the only case that is ignored without being forwarded.
+     *
+     * @param context the Application context
+     * @param config the configuration string, or empty for no SDK initialization
+     * @param comment the comment string, or null for no comment (supports {@code reinit...} / {@code options:...})
+     */
+    public static synchronized void initialize(Context context, String config, String comment) {
+        if (config == null)
+            throw new IllegalArgumentException("config must not be null; pass \"\" for bypass mode");
+
+        // §1 Empty Configuration after Valid Configuration: once initialized with a valid config,
+        // ignore any subsequent empty config initialization and do NOT forward it to the SDK.
+        if (isApproovEnabled() && config.isEmpty()) {
+            Log.d(TAG, "ApproovService already initialized with a valid config; ignoring empty configuration");
+            return;
+        }
+
+        // §1 Configuration Options and Forwarding Requirement: forward all non-empty configs to the
+        // native SDK without any internal short-circuit. State is only modified after the SDK confirms
+        // success, preserving the current operating mode (protected or bypass) on failure.
+        if (!config.isEmpty()) {
+            try {
+                boolean sdkInitialized = Approov.initialize(context.getApplicationContext(), config, "auto", comment);
+                if (!sdkInitialized) {
+                    // §1 Same Config Re-initialization: the SDK returned false (already initialized
+                    // with the same config); log and treat as success.
+                    Log.d(TAG, "Approov SDK already initialized");
+                }
+            } catch (IllegalArgumentException e) {
+                Log.e(TAG, "Approov initialization failed: " + e.getMessage());
+                throw e; // service-layer state NOT modified — prior operating mode preserved
+            } catch (IllegalStateException e) {
+                // §1 Different Non-empty Config Re-initialization: surface as a rejection.
+                Log.e(TAG, "Approov initialization failed: " + e.getMessage());
+                throw e; // service-layer state NOT modified — prior operating mode preserved
+            }
+            Approov.setUserProperty("approov-service-grpc/" + BuildConfig.APPROOV_SERVICE_VERSION);
+        }
+
+        // §1 Service-Layer State Only Updated On Success / Service Mutator Reset: now that the
+        // platform SDK has confirmed success (or we are in empty-config bypass mode), reset the
+        // service-layer state. This includes resetting the custom service mutator to the default
+        // on every successful initialization so custom overrides do not persist across boundaries.
+        initialized = false;
+        approovConfigString = null;
+        proceedOnNetworkFail = false;
+        approovTokenHeader = APPROOV_TOKEN_HEADER;
+        approovTokenPrefix = APPROOV_TOKEN_PREFIX;
+        approovTraceIDHeader = APPROOV_TRACE_ID_HEADER;
+        bindingHeader = null;
+        useApproovStatusIfNoToken = false;
+        serviceMutator = ApproovServiceMutator.DEFAULT;
+        substitutionHeaders.clear();
+        exclusionURLRegexs.clear();
+        initialized = true;
+        approovConfigString = config;
+    }
+
+    /**
      * Initializes the Approov service with an account configuration.
      *
      * @param context the Application context
      * @param config the configuration string, or empty for no SDK initialization
      */
-    public static synchronized void initialize(Context context, String config) {
-        // If we are already initialized with a valid config, ignore any subsequent
-        // empty config initialization
-        if (isApproovEnabled() && (config == null || config.isEmpty())) {
-            Log.d(TAG, "ApproovService already initialized with a valid config; ignoring empty configuration");
-            return;
-        }
-
-        // Check if we attempt to use a different configString
-        if (initialized && approovConfigString != null && !approovConfigString.isEmpty() && config != null && !config.isEmpty() && !config.equals(approovConfigString)) {
-            Log.e(TAG, "Attempting to initialize with different configuration");
-            return;
-        }
-        try {
-            if (config != null && config.length() != 0) {
-                Approov.initialize(context.getApplicationContext(), config, "auto", null);
-                approovConfigString = config;
-            } else {
-                approovConfigString = "";
-            }
-            initialized = true;
-            // §1 Service-Layer State Only Updated On Success / Service Mutator Reset: now that the
-            // platform SDK has confirmed success (or we are in empty-config bypass mode), reset the
-            // service-layer state. This includes resetting the custom service mutator to the default
-            // on every successful initialization so custom overrides do not persist across boundaries.
-            proceedOnNetworkFail = false;
-            approovTokenHeader = APPROOV_TOKEN_HEADER;
-            approovTokenPrefix = APPROOV_TOKEN_PREFIX;
-            approovTraceIDHeader = APPROOV_TRACE_ID_HEADER;
-            bindingHeader = null;
-            useApproovStatusIfNoToken = false;
-            serviceMutator = ApproovServiceMutator.DEFAULT;
-            substitutionHeaders.clear();
-            exclusionURLRegexs.clear();
-            if (isApproovEnabled()) {
-                Approov.setUserProperty("approov-service-grpc/" + BuildConfig.APPROOV_SERVICE_VERSION);
-            }
-        } catch (IllegalArgumentException e) {
-            Log.e(TAG, "Approov initialization failed: " + e.getMessage());
-            return;
-        }
+    public static void initialize(Context context, String config) {
+        // default uses null comment
+        initialize(context, config, null);
     }
 
     /**

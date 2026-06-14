@@ -73,12 +73,18 @@ public class ApproovServiceMiniSdkTest {
 
     @Test
     public void testInitializeIgnoresSameConfigAndRejectsDifferentConfig() {
-        // Same config: should log and continue
+        // §1 Same Config Re-initialization: forwarded to the SDK which returns false (already
+        // initialized); the service layer treats this as success and remains fully initialized.
         ApproovService.initialize(context, validInitialConfig);
+        assertTrue(ApproovService.isInitialized());
+        assertTrue(ApproovService.isApproovEnabled());
 
-        // Different config: should fail to initialize
+        // §1 Different Non-empty Config Re-initialization: forwarded to the SDK which throws an
+        // IllegalStateException. The native rejection is surfaced and the service-layer state is
+        // left completely unchanged (still protected with the original config).
         String differentConfig = "#cb-other#mAxOF0ekJUOC36J5XWmVmVipOcUoEdMjhPSp2FVtyTo=";
-        ApproovService.initialize(context, differentConfig);
+        assertThrows(IllegalStateException.class, () ->
+            ApproovService.initialize(context, differentConfig));
         assertTrue(ApproovService.isInitialized());
         assertTrue(ApproovService.isApproovEnabled());
     }
