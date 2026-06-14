@@ -54,7 +54,10 @@ public class ApproovClientInterceptor implements ClientInterceptor {
     public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(
             MethodDescriptor<ReqT, RespT> method,
             CallOptions callOptions, Channel next) {
-        return new ApproovClientCall<>(next.newCall(method, callOptions));
+        // capture the RPC path ("/package.Service/Method") so it can be threaded through to message
+        // signing (@path / @target-uri derived components) and exclusion URL matching
+        String path = "/" + method.getFullMethodName();
+        return new ApproovClientCall<>(next.newCall(method, callOptions), path);
     }
 
     /**
@@ -64,15 +67,19 @@ public class ApproovClientInterceptor implements ClientInterceptor {
      */
     private final class ApproovClientCall<ReqT, RespT> extends SimpleForwardingClientCall<ReqT, RespT> {
 
+        /** RPC path ("/package.Service/Method") threaded through for signing and exclusion matching */
+        private final String path;
+
         // Non private to avoid synthetic class
-        ApproovClientCall(ClientCall<ReqT, RespT> call) {
+        ApproovClientCall(ClientCall<ReqT, RespT> call, String path) {
             super(call);
+            this.path = path;
         }
 
         @Override
         public void start(Listener<RespT> responseListener, Metadata headers) {
             try {
-                ApproovService.addApproov(host, headers);
+                ApproovService.addApproov(host, path, headers);
                 super.start(responseListener, headers);
             } catch (Exception e) {
                 super.cancel(null, e);
