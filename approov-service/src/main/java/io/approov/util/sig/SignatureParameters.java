@@ -188,7 +188,7 @@ public class SignatureParameters implements Cloneable {
 		return getParameters().get(key);
 	}
 
-	public Object setCustomParameter(String key, Object value) {
+	public SignatureParameters setCustomParameter(String key, Object value) {
 		switch (key) {
 			case ALG: {
 				String val = (String)value;
@@ -283,8 +283,8 @@ public class SignatureParameters implements Cloneable {
 		String value = identifier.get();
 		Parameters params = identifier.getParams();
 		for (StringItem item : componentIdentifiers) {
-			if (value.equals(identifier.get())
-				&& params.equals(identifier.getParams())) {
+			if (item.get().equals(value)
+				&& item.getParams().equals(params)) {
 				return true;
 			}
 		}

@@ -110,8 +110,9 @@ public class ApproovService {
      * @param comment the comment string, or null for no comment (supports {@code reinit...} / {@code options:...})
      */
     public static synchronized void initialize(Context context, String config, String comment) {
-        if (config == null)
-            throw new IllegalArgumentException("config must not be null; pass \"\" for bypass mode");
+        if (config == null) {
+            config = "";
+        }
 
         // §1 Empty Configuration after Valid Configuration: once initialized with a valid config,
         // ignore any subsequent empty config initialization and do NOT forward it to the SDK.
@@ -407,7 +408,7 @@ public class ApproovService {
      * secure string fetch by starting the operation earlier so the subsequent fetch may be able to use cached data.
      */
     public static synchronized void prefetch() {
-        if (initialized)
+        if (isApproovEnabled())
             // fetch an Approov token using a placeholder domain
             Approov.fetchApproovToken(new PrefetchCallbackHandler(), "approov.io");
     }
@@ -813,9 +814,10 @@ public class ApproovService {
         String traceIDHeaderKey = getApproovTraceIDHeader();
         if (traceIDHeaderKey != null && !traceIDHeaderKey.isEmpty()) {
             String traceID = approovResults.getTraceID();
-            headers.put(Metadata.Key.of(traceIDHeaderKey, Metadata.ASCII_STRING_MARSHALLER),
-                    traceID == null ? "" : traceID);
-            changes.setTraceIDHeaderKey(traceIDHeaderKey);
+            if (traceID != null && !traceID.isEmpty()) {
+                headers.put(Metadata.Key.of(traceIDHeaderKey, Metadata.ASCII_STRING_MARSHALLER), traceID);
+                changes.setTraceIDHeaderKey(traceIDHeaderKey);
+            }
         }
 
         // deal with any header substitutions, which may require further fetches but these should be
@@ -860,6 +862,8 @@ public class ApproovService {
     static Set<String> getPins(String hostname) {
         // extract the set of valid pins for the hostname
         Set<String> pins = new HashSet<>();
+        if (!isApproovEnabled())
+            return pins;
         @SuppressWarnings("unchecked")
         Map<String, List<String>> allPins = Approov.getPins("public-key-sha256");
         List<String> hostPins = allPins.get(hostname);
@@ -882,6 +886,10 @@ public class ApproovService {
      * @return String ARC from last attestation request or empty string if network unavailable
      */
     public static String getLastARC() {
+        if (!isApproovEnabled()) {
+            Log.i(TAG, "ApproovService: ARC code unavailable (SDK not initialized)");
+            return "";
+        }
         // Get the dynamic pins from Approov
         Map<String, List<String>> approovPins = Approov.getPins("public-key-sha256");
         if (approovPins == null || approovPins.isEmpty()) {

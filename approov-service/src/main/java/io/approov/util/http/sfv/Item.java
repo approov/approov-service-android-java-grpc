@@ -59,7 +59,7 @@ public interface Item<T> extends ListElement<T>, Parameterizable<T> {
         if (item == null) {
             return null;
         }
-        item.withParams(params);
+        item = item.withParams(params);
         return item;
     }
 

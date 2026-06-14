@@ -4,7 +4,7 @@ All notable changes to this package will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
-## [Unreleased]
+## [3.5.4] - 2026-06-14
 
 ### Added
 - Added a customizable service mutator system (`ApproovServiceMutator`, default `ApproovServiceMutator.DEFAULT`), installable via `setServiceMutator` / `getServiceMutator`, allowing the default fail-closed token-fetch and attestation-result handling to be overridden.
@@ -15,6 +15,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Added `setUseApproovStatusIfNoToken` to inject the fetch status string into the token header when no real token is available.
 - Added `addExclusionURLRegex` / `removeExclusionURLRegex` to exclude matching requests from Approov mutation (pinning may still apply).
 - The `ApproovClientInterceptor` now threads the RPC path (`"/" + method.getFullMethodName()`) through to the service layer for message signing (`@path` / `@target-uri`) and exclusion URL matching.
+- Added `README.md`, `USAGE.md`, and `REFERENCE.md` documentation files for the service layer.
+- Added `SECURITY.md` file.
 
 ### Changed
 - Refactored `ApproovService.addApproov` to route through the active `ApproovServiceMutator` (exclusion check → token fetch → token/trace headers → header substitution → processed-request hook). A new `addApproov(String host, String path, Metadata headers)` overload threads the RPC path; the previous `addApproov(String host, Metadata headers)` is deprecated and delegates to it.
@@ -23,12 +25,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 ### Deprecated
 - `setProceedOnNetworkFail` is now a no-op. Use `setServiceMutator` to customize behavior on a networking failure.
 - `getMessageSignature` is deprecated in favor of `getAccountMessageSignature` / `getInstallMessageSignature`; it now delegates to `getAccountMessageSignature`.
-
-## [3.5.4] - 2026-06-14
-
-### Added
-- Added `README.md`, `USAGE.md`, and `REFERENCE.md` documentation files for the service layer.
-- Added `SECURITY.md` file.
 
 ## [3.5.3] - 2026-01-15
 

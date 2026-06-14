@@ -7,7 +7,7 @@ A wrapper for the [Approov SDK](https://github.com/approov/approov-android-sdk) 
 The Approov integration is available via [`Maven Central`](https://mvnrepository.com/repos/central). This allows inclusion into the project by simply specifying a dependency in the `build.gradle` file for the app:
 
 ```groovy
-implementation("io.approov:service.grpc:3.5.3")
+implementation("io.approov:service.grpc:3.5.4")
 ```
 
 This package is an open-source wrapper layer that allows you to easily use Approov with `gRPC-Java`. It has a further dependency on the closed-source [Approov SDK](https://github.com/approov/approov-android-sdk).
@@ -21,7 +21,7 @@ The following app permissions need to be available in the manifest to use Approo
 <uses-permission android:name="android.permission.INTERNET" />
 ```
 
-Note that the minimum SDK version you can use with the Approov package is 21 (Android 5.0).
+Note that the minimum SDK version you can use with the Approov package is 23 (Android 6.0).
 
 Please read the [Targeting Android 11 and Above](https://approov.io/docs/latest/approov-usage-documentation/#targeting-android-11-and-above) section of the reference documentation if targeting Android 11 (API level 30) or above.
 

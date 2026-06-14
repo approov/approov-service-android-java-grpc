@@ -175,7 +175,12 @@ public class ApproovDefaultMessageSigning implements ApproovServiceMutator {
         }
         // generate and add a message signature
         ApproovGRPCComponentProvider provider = new ApproovGRPCComponentProvider(request);
-        SignatureParameters params = buildSignatureParameters(provider, changes);
+        SignatureParameters params;
+        try {
+            params = buildSignatureParameters(provider, changes);
+        } catch (IllegalStateException e) {
+            throw new ApproovException("Failed to build signature parameters: " + e.getMessage(), e);
+        }
         if (params == null) {
             // No signature to be added to the request; return the original request.
             return request;
@@ -183,7 +188,13 @@ public class ApproovDefaultMessageSigning implements ApproovServiceMutator {
 
         // Apply the params to get the message
         SignatureBaseBuilder baseBuilder = new SignatureBaseBuilder(params, provider);
-        String message = baseBuilder.createSignatureBase();
+        String message;
+        try {
+            message = baseBuilder.createSignatureBase();
+        } catch (RuntimeException e) {
+            Log.e(TAG, "failed to create signature base, skipping signing: " + e.getMessage());
+            return request;
+        }
         // WARNING never log the message as it contains an Approov token which provides access to your API.
 
         // Generate the signature
@@ -235,9 +246,9 @@ public class ApproovDefaultMessageSigning implements ApproovServiceMutator {
         }
 
         // Calculate the signature and signature-input header values
-        String sigHeader = Dictionary.valueOf(Map.of(
+        String sigHeader = Dictionary.valueOf(singleEntryMap(
                 sigId, ByteSequenceItem.valueOf(signature))).serialize();
-        String sigInputHeader = Dictionary.valueOf(Map.of(
+        String sigInputHeader = Dictionary.valueOf(singleEntryMap(
                 sigId, params.toComponentValue())).serialize();
 
         // Add the headers to the request metadata. Remove any existing values first so that
@@ -252,7 +263,7 @@ public class ApproovDefaultMessageSigning implements ApproovServiceMutator {
                 MessageDigest digestBuilder = MessageDigest.getInstance("SHA-256");
                 digestBuilder.reset();
                 byte[] digest = digestBuilder.digest(message.getBytes(StandardCharsets.UTF_8));
-                String digestHeader = Dictionary.valueOf(Map.of(
+                String digestHeader = Dictionary.valueOf(singleEntryMap(
                         DIGEST_SHA256, ByteSequenceItem.valueOf(digest))).serialize();
                 replaceMetadata(headers, "Signature-Base-Digest", digestHeader);
             } catch (NoSuchAlgorithmException e) {
@@ -262,6 +273,15 @@ public class ApproovDefaultMessageSigning implements ApproovServiceMutator {
 
         // WARNING never log the full request as it contains an Approov token which provides access to your API
         return provider.getRequest();
+    }
+
+    /**
+     * Helper to build a single-entry map for Android compatibility (avoiding Java 9 Map.of).
+     */
+    private static <K, V> Map<K, V> singleEntryMap(K key, V value) {
+        Map<K, V> map = new HashMap<>();
+        map.put(key, value);
+        return map;
     }
 
     /**
