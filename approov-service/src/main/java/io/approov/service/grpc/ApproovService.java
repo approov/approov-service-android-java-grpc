@@ -78,22 +78,67 @@ public class ApproovService {
      * @param config the configuration string, or empty for no SDK initialization
      */
     public static synchronized void initialize(Context context, String config) {
+        // If we are already initialized with a valid config, ignore any subsequent
+        // empty config initialization
+        if (isApproovEnabled() && (config == null || config.isEmpty())) {
+            Log.d(TAG, "ApproovService already initialized with a valid config; ignoring empty configuration");
+            return;
+        }
+
         // Check if we attempt to use a different configString
-        if (initialized && config != null && !config.isEmpty() && !config.equals(approovConfigString)) {
+        if (initialized && approovConfigString != null && !approovConfigString.isEmpty() && config != null && !config.isEmpty() && !config.equals(approovConfigString)) {
             Log.e(TAG, "Attempting to initialize with different configuration");
             return;
         }
         try {
             if (config != null && config.length() != 0) {
-                Approov.initialize(context, config, "auto", null);
+                Approov.initialize(context.getApplicationContext(), config, "auto", null);
                 approovConfigString = config;
+            } else {
+                approovConfigString = "";
             }
-            Approov.setUserProperty("approov-service-grpc");
+            initialized = true;
+            if (isApproovEnabled()) {
+                Approov.setUserProperty("approov-service-grpc/" + BuildConfig.APPROOV_SERVICE_VERSION);
+            }
         } catch (IllegalArgumentException e) {
             Log.e(TAG, "Approov initialization failed: " + e.getMessage());
             return;
         }
-        initialized = true;
+    }
+
+    /**
+     * Indicates whether the service layer has been initialized.
+     *
+     * @return true if the service layer has been initialized, false otherwise
+     */
+    public static synchronized boolean isInitialized() {
+        return initialized;
+    }
+
+    /**
+     * Indicates whether Approov protection is enabled for this service layer
+     * instance. If initialization used an empty config string then the layer is
+     * initialized but Approov protection is bypassed.
+     *
+     * @return true if Approov protection is enabled, false otherwise
+     */
+    public static synchronized boolean isApproovEnabled() {
+        return initialized && (approovConfigString != null) && !approovConfigString.isEmpty();
+    }
+
+    /**
+     * Resets the ApproovService state for testing.
+     * This is a testing requirement and has no production use case.
+     */
+    static synchronized void resetForTesting() {
+        initialized = false;
+        approovConfigString = null;
+        proceedOnNetworkFail = false;
+        approovTokenHeader = APPROOV_TOKEN_HEADER;
+        approovTokenPrefix = APPROOV_TOKEN_PREFIX;
+        bindingHeader = null;
+        substitutionHeaders.clear();
     }
 
     /**
@@ -122,6 +167,9 @@ public class ApproovService {
      * @throws ApproovException if there was a problem
      */
     public static synchronized void setDevKey(String devKey) throws ApproovException {
+        if (!isApproovEnabled()) {
+            throw new ApproovException("setDevKey: SDK not initialized");
+        }
         try {
             Approov.setDevKey(devKey);
             Log.d(TAG, "setDevKey");
@@ -188,6 +236,9 @@ public class ApproovService {
      * @throws ApproovException if there was a problem
      */
     public static void precheck() throws ApproovException {
+        if (!isApproovEnabled()) {
+            throw new ApproovException("precheck: SDK not initialized");
+        }
         // try and fetch a non-existent secure string in order to check for a rejection
         Approov.TokenFetchResult approovResults;
         try {
@@ -282,6 +333,9 @@ public class ApproovService {
      * @throws ApproovException if there was a problem
      */
     public static String getDeviceID() throws ApproovException {
+        if (!isApproovEnabled()) {
+            throw new ApproovException("getDeviceID: SDK not initialized");
+        }
         try {
             String deviceID = Approov.getDeviceID();
             Log.d(TAG, "getDeviceID: " + deviceID);
@@ -303,6 +357,9 @@ public class ApproovService {
      * @throws ApproovException if there was a problem
      */
     public static void setDataHashInToken(String data) throws ApproovException {
+        if (!isApproovEnabled()) {
+            throw new ApproovException("setDataHashInToken: SDK not initialized");
+        }
         try {
             Approov.setDataHashInToken(data);
             Log.d(TAG, "setDataHashInToken");
@@ -329,6 +386,9 @@ public class ApproovService {
      * @throws ApproovException if there was a problem
      */
     public static String fetchToken(String url) throws ApproovException {
+        if (!isApproovEnabled()) {
+            throw new ApproovException("fetchToken: SDK not initialized");
+        }
         // fetch the Approov token
         Approov.TokenFetchResult approovResults;
         try {
@@ -370,6 +430,9 @@ public class ApproovService {
      * @throws ApproovException if there was a problem
      */
     public static String getMessageSignature(String message) throws ApproovException {
+        if (!isApproovEnabled()) {
+            throw new ApproovException("getMessageSignature: SDK not initialized");
+        }
         try {
             String signature = Approov.getMessageSignature(message);
             Log.d(TAG, "getMessageSignature");
@@ -402,6 +465,9 @@ public class ApproovService {
      * @throws ApproovException if there was a problem
      */
     public static String fetchSecureString(String key, String newDef) throws ApproovException {
+        if (!isApproovEnabled()) {
+            throw new ApproovException("fetchSecureString: SDK not initialized");
+        }
         // determine the type of operation as the values themselves cannot be logged
         String type = "lookup";
         if (newDef != null)
@@ -455,6 +521,9 @@ public class ApproovService {
      * @throws ApproovException if there was a problem
      */
     public static String fetchCustomJWT(String payload) throws ApproovException {
+        if (!isApproovEnabled()) {
+            throw new ApproovException("fetchCustomJWT: SDK not initialized");
+        }
         // fetch the custom JWT catching any exceptions the SDK might throw
         Approov.TokenFetchResult approovResults;
         try {
@@ -499,6 +568,11 @@ public class ApproovService {
         // throw if we couldn't initialize the SDK
         if (!initialized) {
             throw new ApproovException("Approov not initialized");
+        }
+
+        // Bypass if Approov is not enabled
+        if (!isApproovEnabled()) {
+            return;
         }
 
         // Update the data hash based on any token binding header if it is available
@@ -660,6 +734,9 @@ public class ApproovService {
      * @throws ApproovException if the attrs parameter is invalid or the SDK is not initialized
      */
     public static void setInstallAttrsInToken(String attrs) throws ApproovException {
+        if (!isApproovEnabled()) {
+            throw new ApproovException("setInstallAttrsInToken: SDK not initialized");
+        }
         try {
             Approov.setInstallAttrsInToken(attrs);
             Log.d(TAG, "setInstallAttrsInToken");
