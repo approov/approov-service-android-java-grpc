@@ -85,14 +85,103 @@ ApproovService.removeSubstitutionHeader("authorization");
 
 ---
 
-## Proceed on Network Failure
+## Exclusion URLs
 
-By default, if the service layer cannot fetch an Approov token due to network issues (such as `noNetwork` or `poorNetwork`), the request is blocked and an `ApproovNetworkException` is thrown. You can allow requests to proceed anyway (without the token header) by setting `setProceedOnNetworkFail`:
+You can exclude specific requests from Approov request mutation. A request whose reconstructed URL matches an exclusion regex is forwarded **without** an Approov token, trace ID, message signing, or secure string substitution. Certificate pinning may still be applied to the host.
+
+Because gRPC has no request URL at the interceptor layer, the regex is matched against `"https://<hostname><path>"`, where `<path>` is the RPC path of the form `/package.Service/Method`.
 
 ```java
-// Proceed even if token fetch fails due to network issues
-ApproovService.setProceedOnNetworkFail(true);
+// Skip Approov mutation for health-check RPCs on this host
+ApproovService.addExclusionURLRegex("https://grpc.example.com/grpc.health\\..*");
+
+// Later, revert to standard processing
+ApproovService.removeExclusionURLRegex("https://grpc.example.com/grpc.health\\..*");
+```
+
+---
+
+## Trace ID Header
+
+By default the service layer adds an `Approov-TraceID` header to protected requests to aid debugging. You can change the header name, or disable it entirely by passing `null`:
+
+```java
+ApproovService.setApproovTraceIDHeader("X-My-Trace");   // custom header name
+ApproovService.setApproovTraceIDHeader(null);           // disable the trace ID header
+```
+
+---
+
+## Token Status Fallback
+
+When a real Approov token cannot be obtained, you can have the service layer inject the fetch status string into the token header instead, giving the backend visibility into why a token was unavailable:
+
+```java
+ApproovService.setUseApproovStatusIfNoToken(true);
+```
+
+---
+
+## Custom Mutators / Network Failure Behavior
+
+The legacy `setProceedOnNetworkFail` method is **deprecated and is now a no-op**. To customize how the interceptor reacts to a networking failure (or any other token fetch status), install a custom `ApproovServiceMutator`:
+
+```java
+ApproovService.setServiceMutator(new ApproovServiceMutator() {
+    @Override
+    public boolean handleInterceptorFetchTokenResult(Approov.TokenFetchResult results, String url)
+            throws ApproovException {
+        // Proceed without a token on a networking failure instead of failing closed
+        switch (results.getStatus()) {
+            case NO_NETWORK:
+            case POOR_NETWORK:
+            case MITM_DETECTED:
+                return false; // forward the request without a token
+            default:
+                // fall back to the default fail-closed handling
+                return ApproovServiceMutator.DEFAULT.handleInterceptorFetchTokenResult(results, url);
+        }
+    }
+});
 ```
 
 > [!WARNING]
-> Use this with caution, as proceeding on network failures might allow connections before dynamic pins have been received, potentially opening the channel to a Man-in-the-Middle (MITM) attack.
+> Proceeding on network failures might allow connections before dynamic pins have been received, potentially opening the channel to a Man-in-the-Middle (MITM) attack.
+
+> [!NOTE]
+> The custom mutator is reset to the default on every successful `initialize` call, so install it after initialization.
+
+---
+
+## Message Signing
+
+Message signing (RFC 9421) adds `Signature` and `Signature-Input` metadata to gRPC requests, allowing the backend to verify request integrity. It is provided by `ApproovDefaultMessageSigning`, which is itself an `ApproovServiceMutator`, so you enable it via `setServiceMutator`:
+
+```java
+import io.approov.service.grpc.ApproovDefaultMessageSigning;
+
+// Install message signing (ES256) — the default factory
+ApproovDefaultMessageSigning.SignatureParametersFactory factory =
+    ApproovDefaultMessageSigning.generateDefaultSignatureParametersFactory();
+ApproovService.setServiceMutator(new ApproovDefaultMessageSigning().setDefaultFactory(factory));
+```
+
+To use account message signing (HMAC-SHA256) instead of install signing:
+
+```java
+ApproovDefaultMessageSigning.SignatureParametersFactory factory =
+    ApproovDefaultMessageSigning.generateDefaultSignatureParametersFactory()
+        .setUseAccountMessageSigning();
+ApproovService.setServiceMutator(new ApproovDefaultMessageSigning().setDefaultFactory(factory));
+```
+
+The default factory signs `@method`, `@target-uri`, the Approov token and trace-ID headers, and the `Authorization` header when present. Signing is only performed once an Approov token has been added to the request.
+
+> [!NOTE]
+> gRPC requests carry no buffered body at the interceptor layer, so **no `Content-Digest` body digest is produced for gRPC**.
+
+> [!NOTE]
+> Message signing is **fail-open**: if the SDK cannot provide a signature (or the signature cannot be decoded), the request proceeds **unsigned** and the reason is logged at error level. The only fail-closed case applicable to gRPC is configuring an **unsupported signing algorithm**, which throws an `ApproovException`. The backend remains the enforcement point for signatures.
+
+> [!NOTE]
+> Install the message signing mutator after initialization, as the mutator is reset to the default on every successful `initialize` call.
