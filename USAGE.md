@@ -12,8 +12,15 @@ import io.approov.service.grpc.ApproovChannelBuilder;
 import io.approov.service.grpc.ApproovClientInterceptor;
 import io.grpc.ManagedChannel;
 
-// Initialize the Approov service
-ApproovService.initialize(getApplicationContext(), "<config-string>");
+// Initialize the Approov service. Initialization can fail (bad config / SDK error), so guard it
+// and fall back to bypass mode (empty config) rather than letting the app crash. See the README
+// "INITIALIZING APPROOV SERVICE" section for the full pattern (device-ID + session correlation logging).
+try {
+    ApproovService.initialize(getApplicationContext(), "<config-string>");
+} catch (Exception e) {
+    // Continue UNPROTECTED — requests go out without Approov protection; the backend stays the enforcement point.
+    ApproovService.initialize(getApplicationContext(), "");
+}
 
 // Create the channel
 String host = "grpc.example.com";
