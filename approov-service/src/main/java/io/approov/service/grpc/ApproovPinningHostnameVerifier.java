@@ -61,10 +61,13 @@ final class ApproovPinningHostnameVerifier implements HostnameVerifier {
     public boolean verify(String hostname, SSLSession session) {
         // check the delegate function first and only proceed if it passes
         if (delegate.verify(hostname, session)) try {
-            // ensure pins are refreshed eventually
-            ApproovService.prefetch();
-
-            // extract the set of valid pins for the hostname
+            // Use the current live Approov pins for this host. The Approov SDK refreshes its
+            // configuration (and therefore the pin set) out-of-band after an attestation/token
+            // fetch, so getPins() always reflects the latest dynamic pin update for the app.
+            // Note: this verifier runs during the TLS handshake, so a tightened pin set takes
+            // effect on the next (re)connection. An already-established long-lived HTTP/2 channel
+            // is not forcibly torn down here; callers requiring immediate enforcement on live
+            // connections should rebuild the channel after a configuration update.
             Set<String> hostPins = ApproovService.getPins(hostname);
 
             // if there are no pins then we accept any certificate

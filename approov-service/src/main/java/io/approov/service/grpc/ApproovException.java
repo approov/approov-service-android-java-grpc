@@ -30,4 +30,14 @@ public class ApproovException extends IOException {
     public ApproovException(String message) {
         super(message);
     }
+
+    /**
+     * Constructs an exception due to an Approov error with a cause.
+     *
+     * @param message is the basic information about the exception cause
+     * @param cause is the cause of the exception
+     */
+    public ApproovException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }
