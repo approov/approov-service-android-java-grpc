@@ -26,6 +26,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - `setProceedOnNetworkFail` is now a no-op. Use `setServiceMutator` to customize behavior on a networking failure.
 - `getMessageSignature` is deprecated in favor of `getAccountMessageSignature` / `getInstallMessageSignature`; it now delegates to `getAccountMessageSignature`.
 
+### Fixed
+- `setApproovHeader(header, prefix)` now treats a `null` prefix as no prefix (empty string). Previously a `null` prefix was concatenated directly with the token, producing a malformed `"null<token>"` header value; the behaviour now matches `addSubstitutionHeader`.
+- Request processing iterates a synchronized snapshot of the substitution-header map instead of the live map, removing a `ConcurrentModificationException` window when `initialize()` resets state on another thread while a request is in flight.
+- The trace-ID header is now emitted with an empty value (rather than omitted) when the SDK returns an empty trace ID on a protected request, providing backend evidence that Approov processing occurred (matches the token-header behaviour).
+- The published AAR now bakes the release version into `BuildConfig.APPROOV_SERVICE_VERSION` (CI passes `-PapproovServiceVersion=<tag>`); previously the Maven-published artifact reported the local-dev default `"dev"`.
+
+### Security
+- TLS pinning behaviour clarified. `ApproovPinningHostnameVerifier` reads the current live Approov pins via `ApproovService.getPins`; the obsolete `ApproovService.prefetch()` call (a no-op) was removed from the verify path. The standard OS hostname/certificate verification still runs first, and bypass mode (empty-config initialization) still applies OS certificate validation. Pins are enforced at TLS handshake time, so a tightened pin set takes effect on the next (re)connection; an already-established long-lived gRPC/HTTP-2 channel is not forcibly torn down — callers needing immediate enforcement on live connections should rebuild the channel after a configuration update.
+
 ## [3.5.3] - 2026-01-15
 
 ### Added

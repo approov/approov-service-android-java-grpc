@@ -390,6 +390,8 @@ public class ApproovService {
                 substitutionHeaders.put(header, "");
             else
                 substitutionHeaders.put(header, requiredPrefix);
+        } else {
+            Log.e(TAG, "addSubstitutionHeader ignored: service layer not initialized (header " + header + ")");
         }
     }
 
@@ -401,6 +403,18 @@ public class ApproovService {
     public static synchronized void removeSubstitutionHeader(String header) {
         Log.d(TAG, "removeSubstitutionHeader " + header);
         substitutionHeaders.remove(header);
+    }
+
+    /**
+     * Gets a copy of the map of substitution header names mapped to their required prefixes. A
+     * snapshot is returned (taken under the class lock) so that request processing can iterate it
+     * without risking a ConcurrentModificationException if initialize() clears the live map on
+     * another thread.
+     *
+     * @return a snapshot map of substitution header names to required prefixes
+     */
+    static synchronized Map<String, String> getSubstitutionHeaders() {
+        return new HashMap<>(substitutionHeaders);
     }
 
     /**
@@ -455,7 +469,10 @@ public class ApproovService {
     public static synchronized void setApproovHeader(String header, String prefix) {
         Log.d(TAG, "setApproovHeader " + header + ", " + prefix);
         approovTokenHeader = header;
-        approovTokenPrefix = prefix;
+        // A null prefix is equivalent to no prefix (empty string). Storing null here would later
+        // concatenate the literal string "null" in front of the token in addApproov, producing a
+        // malformed header value. Normalise to "" exactly as addSubstitutionHeader does.
+        approovTokenPrefix = (prefix == null) ? "" : prefix;
     }
 
     /**
@@ -813,17 +830,19 @@ public class ApproovService {
         // emit the trace ID header if a trace ID header name is configured
         String traceIDHeaderKey = getApproovTraceIDHeader();
         if (traceIDHeaderKey != null && !traceIDHeaderKey.isEmpty()) {
+            // §2 Missing Artifacts Fallback: when a trace ID header is configured, emit it even if
+            // the SDK returns an empty/absent trace ID, so the backend still sees evidence that
+            // Approov processing occurred (mirrors the token header, which is always emitted).
             String traceID = approovResults.getTraceID();
-            if (traceID != null && !traceID.isEmpty()) {
-                headers.put(Metadata.Key.of(traceIDHeaderKey, Metadata.ASCII_STRING_MARSHALLER), traceID);
-                changes.setTraceIDHeaderKey(traceIDHeaderKey);
-            }
+            headers.put(Metadata.Key.of(traceIDHeaderKey, Metadata.ASCII_STRING_MARSHALLER),
+                    traceID == null ? "" : traceID);
+            changes.setTraceIDHeaderKey(traceIDHeaderKey);
         }
 
         // deal with any header substitutions, which may require further fetches but these should be
         // using cached results
         List<String> substitutedHeaders = new ArrayList<>();
-        for (Map.Entry<String, String> entry : substitutionHeaders.entrySet()) {
+        for (Map.Entry<String, String> entry : getSubstitutionHeaders().entrySet()) {
             String header = entry.getKey();
             String prefix = entry.getValue();
             String value = headers.get(Metadata.Key.of(header, Metadata.ASCII_STRING_MARSHALLER));
